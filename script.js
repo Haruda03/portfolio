@@ -174,11 +174,20 @@ function initNavbarScroll() {
     });
 }
 
-// Contact Form Handling with EmailJS
+// Contact Form Handling with EmailJS (with fallback)
 function initContactForm() {
     if (contactForm) {
-        // Initialize EmailJS
-        emailjs.init("YOUR_PUBLIC_KEY"); // Replace with your EmailJS public key
+        // Check if EmailJS is properly configured
+        const isEmailJSConfigured = window.emailjs && 
+                                   typeof emailjs.init === 'function' && 
+                                   window.EMAILJS_PUBLIC_KEY && 
+                                   window.EMAILJS_SERVICE_ID && 
+                                   window.EMAILJS_TEMPLATE_ID;
+        
+        if (isEmailJSConfigured) {
+            // Initialize EmailJS with proper credentials
+            emailjs.init(window.EMAILJS_PUBLIC_KEY);
+        }
         
         contactForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -210,32 +219,67 @@ function initContactForm() {
             btnLoading.style.display = 'inline-flex';
             submitBtn.disabled = true;
             
-            // EmailJS template parameters
-            const templateParams = {
-                user_name: userName,
-                user_email: userEmail,
-                subject: subject,
-                message: message,
-                to_email: 'tamilnilavan1234@gmail.com'
-            };
-            
-            // Send email using EmailJS
-            emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
-                .then(function(response) {
-                    console.log('SUCCESS!', response.status, response.text);
-                    showNotification('Message sent successfully! I\'ll get back to you soon.', 'success');
-                    contactForm.reset();
-                }, function(error) {
-                    console.log('FAILED...', error);
-                    showNotification('Failed to send message. Please try again or contact me directly.', 'error');
-                })
-                .finally(function() {
-                    // Reset button state
-                    btnText.style.display = 'inline-flex';
-                    btnLoading.style.display = 'none';
-                    submitBtn.disabled = false;
-                });
+            if (isEmailJSConfigured) {
+                // Use EmailJS if properly configured
+                const templateParams = {
+                    user_name: userName,
+                    user_email: userEmail,
+                    subject: subject,
+                    message: message,
+                    to_email: 'tamilnilavan1234@gmail.com'
+                };
+                
+                emailjs.send(window.EMAILJS_SERVICE_ID, window.EMAILJS_TEMPLATE_ID, templateParams)
+                    .then(function(response) {
+                        console.log('SUCCESS!', response.status, response.text);
+                        showNotification('Message sent successfully! I\'ll get back to you soon.', 'success');
+                        contactForm.reset();
+                    }, function(error) {
+                        console.log('FAILED...', error);
+                        // Fallback to email client
+                        openEmailClient(userName, userEmail, subject, message);
+                    })
+                    .finally(function() {
+                        resetButtonState();
+                    });
+            } else {
+                // Fallback: Open email client
+                setTimeout(() => {
+                    openEmailClient(userName, userEmail, subject, message);
+                    resetButtonState();
+                }, 1000);
+            }
         });
+        
+        function resetButtonState() {
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const btnLoading = submitBtn.querySelector('.btn-loading');
+            
+            btnText.style.display = 'inline-flex';
+            btnLoading.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+        
+        function openEmailClient(userName, userEmail, subject, message) {
+            // Create mailto link with form data
+            const emailBody = `Hi Tamilnilavan,
+
+${message}
+
+---
+Sent from your portfolio contact form
+Name: ${userName}
+Email: ${userEmail}`;
+            
+            const mailtoLink = `mailto:tamilnilavan1234@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(emailBody)}`;
+            
+            // Open email client
+            window.location.href = mailtoLink;
+            
+            showNotification('Opening your email client. Please send the email to complete your message.', 'success');
+            contactForm.reset();
+        }
     }
 }
 
